@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.email         = ["michal.gajowiak@softiti.com"]
 
   spec.summary       = "Execute slim-lint automatically"
-  spec.homepage      = "TODO: Put your gem's website or public repo URL here."
+  spec.homepage      = "https://github.com/mike927/guard-slim-lint"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features)/}) }
@@ -23,7 +23,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
 
   spec.add_runtime_dependency 'guard'
-  spec.add_runtime_dependency 'guard-compat'
-  spec.add_runtime_dependency 'slim-lint'
 
 end
