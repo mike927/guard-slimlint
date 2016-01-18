@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'guard/slim_lint/version'
 
 Gem::Specification.new do |spec|
-  spec.name          = "guard-slim_lint"
+  spec.name          = "guard-slim-lint"
   spec.version       = Guard::SlimLint::VERSION
   spec.authors       = ["Michal Gajowiak"]
   spec.email         = ["michal.gajowiak@softiti.com"]
@@ -23,5 +23,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
 
   spec.add_runtime_dependency 'guard'
+  spec.add_runtime_dependency 'slim_lint'
+  spec.add_runtime_dependency 'colorize'
 
 end

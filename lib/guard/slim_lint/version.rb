@@ -1,5 +1,5 @@
 module Guard
   module SlimLint
-    VERSION = "0.1.7"
+    VERSION = "1.0.1"
   end
 end

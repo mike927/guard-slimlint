@@ -1,4 +1,5 @@
 require 'guard/plugin'
+require 'colorize'
 
 module Guard
   class SlimLint < Plugin
