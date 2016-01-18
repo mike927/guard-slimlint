@@ -2,7 +2,7 @@ require 'guard/plugin'
 require 'colorize'
 
 module Guard
-  class SlimLint < Plugin
+  class Slimlint < Plugin
     def initialize(options = {})
       super
     end
@@ -24,9 +24,9 @@ module Guard
     def run(paths = [])
       UI.info "Inspecting Slim code style: #{paths.join(' ')}"
       if system "bundle exec slim-lint #{paths.join(' ')}"
-        UI.info "No Slim offences detected".green
+        UI.info 'No Slim offences detected'.green
       else
-        UI.info "There are Slim offences ^^^".red
+        UI.info 'There are Slim offences ^^^'.red
         Notifier.notify('Some offences are found', title: 'slim-lint results', image: :failed)
       end
     end
