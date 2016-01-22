@@ -9,7 +9,7 @@ Add this line to your application's Gemfile:
 
 ```ruby
 group :development do
-  gem 'guard-slim-lint'
+  gem 'guard-slimlint'
 end
 ```
 
@@ -19,7 +19,7 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install guard-slim-lint
+    $ gem install guard-slimlint
 
 
 ## Usage
@@ -34,7 +34,7 @@ and run guard through Bundler with:
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/guard-slim-lint. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
+Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/guard-slimlint. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
 
 
 ## License

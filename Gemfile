@@ -1,4 +1,6 @@
 source 'https://rubygems.org'
-
-# Specify your gem's dependencies in guard-slim-lint-lint.gemspec
+group :development, :test do
+  gem 'astrolabe'
+end
+# Specify your gem's dependencies in guard-slimlint.gemspec
 gemspec

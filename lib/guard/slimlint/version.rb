@@ -1,5 +1,5 @@
 module Guard
-  module SlimLint
-    VERSION = '2.0.1'
+  class SlimLintVersion
+    VERSION = '1.1.1'
   end
 end
