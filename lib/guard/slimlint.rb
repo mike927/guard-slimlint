@@ -1,38 +1,67 @@
 require 'guard/compat/plugin'
 require 'colorize'
-require 'guard/slimlint/notifier'
 
 module Guard
   class SlimLint < Plugin
-    def initialize(options = {})
-      super
-    end
+    attr_accessor :notify_on
 
-    def run_all
-      run
+    def initialize(options = {})
+      @notify_on = options[:notify_on] ? options[:notify_on] : :failure
+      super
     end
 
     def start
       run
     end
 
-    def run_on_modifications(path)
-      run(path)
+    def run_all
+      run
     end
 
-    def run_on_additions(path)
-      run(path)
+    def startguard
+      run
+    end
+
+    def run_on_modifications(paths)
+      run(paths)
+    end
+
+    def run_on_additions(paths)
+      run(paths)
     end
 
     private
 
-    def run(path = ['.'])
-      if system("slim-lint #{path.join(" ")}")
+    def run(paths = ['.'])
+      result = system "slim-lint #{paths.join(' ')}"
+
+      if result
         UI.info 'No Slim offences detected'.green
       else
         UI.info 'Slim offences has been detected'.red
-        Notifier.notify(false, 'Slim offences detected')
       end
+      notify(result) if notification_allowed?(result)
+    end
+
+    def notification_allowed?(result)
+      case notify_on
+      when :failure then !result
+      when :success then result
+      when :both then true
+      when :none then false
+      end
+    end
+
+    def image(result)
+      result ? :success : :failed
+    end
+
+    def message(result)
+      result ? 'No slim offences' : 'Slim offences detected'
+    end
+
+    def notify(result)
+      Notifier.notify(message(result), title: 'Slim-lint results', image: image(result))
     end
   end
 end

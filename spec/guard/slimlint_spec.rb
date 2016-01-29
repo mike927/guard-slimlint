@@ -1,12 +1,11 @@
 require 'spec_helper'
 require 'guard/compat/test/helper'
+require 'guard/compat/plugin'
 require 'guard/slimlint'
 require 'colorize'
-require 'guard/slimlint/notifier'
 
 RSpec.describe Guard::SlimLint do
-  subject { described_class.new(notifications: false) }
-  let(:notifier) { Guard::SlimLint::Notifier }
+  subject { described_class.new }
 
   before { File.delete("#{@core}/Guardfile") if File.exist?("#{@core}/Guardfile") }
   before { system('bundle exec guard init') }
@@ -31,7 +30,7 @@ RSpec.describe Guard::SlimLint do
     context 'when some offences are found' do
       it do
         expect(Guard::UI).to receive(:info).with('Slim offences has been detected'.red)
-        expect(notifier).to receive(:notify).with(false, "Slim offences detected")
+        expect(Guard::Notifier).to receive(:notify).with('Slim offences detected', title: 'Slim-lint results', image: :failed)
         subject.run_on_modifications([@failfile])
       end
     end
