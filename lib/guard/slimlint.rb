@@ -34,13 +34,12 @@ module Guard
 
     def run(paths = ['.'])
       result = system "slim-lint #{paths.join(' ')}"
-
       if result
         UI.info 'No Slim offences detected'.green
       else
         UI.info 'Slim offences has been detected'.red
       end
-      notify(result) if notification_allowed?(result)
+      check_and_notify(result)
     end
 
     def notification_allowed?(result)
@@ -50,6 +49,10 @@ module Guard
       when :both then true
       when :none then false
       end
+    end
+
+    def check_and_notify(result)
+      notify(result) if notification_allowed?(result)
     end
 
     def image(result)

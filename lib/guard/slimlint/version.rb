@@ -1,5 +1,5 @@
 module Guard
   class SlimLintVersion
-    VERSION = '1.1.2'.freeze
+    VERSION = '1.2.1'.freeze
   end
 end
