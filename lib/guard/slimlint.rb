@@ -18,10 +18,6 @@ module Guard
       run
     end
 
-    def startguard
-      run
-    end
-
     def run_on_modifications(paths)
       run(paths)
     end
