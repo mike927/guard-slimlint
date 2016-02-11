@@ -1,3 +1,0 @@
-guard :slim_lint do
-  watch(/^.+(\.html\.slim)$/)
-end

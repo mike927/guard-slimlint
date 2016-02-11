@@ -1,6 +1,6 @@
 # available options:
 #   notify_on:
 #     failure, success, both, none
-guard :slimlint, notify_on: :success do
+guard :slimlint, notify_on: :both do
   watch(/^.+(\.html\.slim)$/)
 end
