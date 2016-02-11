@@ -1,6 +1,6 @@
 # Guard::SlimLint
 
-Guard::SlimLint gem helps developers to automatically runs slim-lint every time a slim file is saved.
+Guard::SlimLint gem helps developers to automatically run slim-lint every time a slim file is saved.
 
 
 ## Installation
