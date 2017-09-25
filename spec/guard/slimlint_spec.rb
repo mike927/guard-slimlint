@@ -42,6 +42,26 @@ RSpec.describe Guard::SlimLint do
     end
   end
 
+  describe '#start' do
+    context 'when :all_on_start option is enabled' do
+      subject { described_class.new(all_on_start: true) }
+
+      it 'runs all' do
+        expect(subject).to receive(:run_all)
+        subject.start
+      end
+    end
+
+    context 'when :all_on_start option is disabled' do
+      subject { described_class.new(all_on_start: false) }
+
+      it 'does nothing' do
+        expect(subject).not_to receive(:run_all)
+        subject.start
+      end
+    end
+  end
+
   describe 'notifiers' do
     context 'when option set on :none' do
       subject { described_class.new(notify_on: :none) }

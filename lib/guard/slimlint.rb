@@ -3,15 +3,16 @@ require 'colorize'
 
 module Guard
   class SlimLint < Plugin
-    attr_accessor :notify_on
+    attr_accessor :notify_on, :all_on_start
 
     def initialize(options = {})
-      @notify_on = options[:notify_on] ? options[:notify_on] : :failure
+      @notify_on    = options.fetch(:notify_on, :failure)
+      @all_on_start = options.fetch(:all_on_start, true)
       super
     end
 
     def start
-      run
+      run_all if all_on_start
     end
 
     def run_all
