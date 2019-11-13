@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name          = 'guard-slimlint'
   spec.version       = Guard::SlimLintVersion::VERSION
   spec.authors       = ['Michal Gajowiak']
-  spec.email         = ['michal.gajowiak.927@gmail.cok']
+  spec.email         = ['michal.gajowiak.927@gmail.com']
 
   spec.summary       = 'Guard::SlimLint runs slim-lint automatically'
   spec.homepage      = 'https://github.com/mike927/guard-slimlint'
