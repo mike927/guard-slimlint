@@ -163,6 +163,15 @@ RSpec.describe Guard::SlimLint do
       expect(described_class.new.notify_on).to eq(:failure)
     end
 
+    # `guard init slimlint` writes the template verbatim, so a default there
+    # that contradicts the plugin's own would hand every new user a setting
+    # neither the README nor this class documents.
+    it 'ships a template whose notify_on matches that default' do
+      template = File.read(SlimLintFixtures::TEMPLATE_GUARDFILE)
+
+      expect(template).to include("notify_on: #{described_class.new.notify_on.inspect}")
+    end
+
     it 'sends the slim-lint error message to the notifier' do
       plugin = described_class.new(notify_on: :both)
       allow(Guard::UI).to receive(:error)

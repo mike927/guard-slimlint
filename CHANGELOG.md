@@ -30,6 +30,11 @@ without changing the plugin's interface.
 - The spec suite no longer deletes the repository's own `Guardfile` on every
   example, and runs in about four seconds instead of ten.
 - Corrected "Slim offences has been detected" to "have been detected".
+- The Guardfile template written by `guard init slimlint` used
+  `notify_on: :both`, the noisiest of the four settings, contradicting the
+  plugin's own `:failure` default. Every new user got a desktop notification
+  on every successful save. The template now matches the documented default,
+  and a spec keeps the two in step.
 
 ### Added
 
