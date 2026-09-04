@@ -6,6 +6,11 @@ AllCops:
   NewCops: enable
   TargetRubyVersion: 3.1
   SuggestExtensions: false
+  # Without this, the Exclude below replaces RuboCop's default list rather
+  # than adding to it, and CI's vendor/bundle gets linted.
+  inherit_mode:
+    merge:
+      - Exclude
   Exclude:
     - 'lib/guard/slimlint/templates/Guardfile'
 
