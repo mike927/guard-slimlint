@@ -1,0 +1,5 @@
+# Keeps slim-lint's RuboCop linter quiet about pending cops when it runs
+# against the throwaway project the specs build.
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false

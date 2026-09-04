@@ -1,5 +1,54 @@
-Documentation:
-  Enabled: false
-Metrics/LineLength:
-    Max: 120
+plugins:
+  - rubocop-rake
+  - rubocop-rspec
 
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.1
+  SuggestExtensions: false
+  # Without this, the Exclude below replaces RuboCop's default list rather
+  # than adding to it, and CI's vendor/bundle gets linted.
+  inherit_mode:
+    merge:
+      - Exclude
+  Exclude:
+    - 'lib/guard/slimlint/templates/Guardfile'
+
+Style/Documentation:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 120
+
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: gemspec
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Guardfile'
+
+# Message expectations read better than spies for the plugin's UI calls.
+RSpec/MessageSpies:
+  Enabled: false
+
+# `lint` is stubbed on the plugin under test so every slim-lint exit status can
+# be covered without shelling out. Injecting a runner collaborator instead is
+# planned for 2.0.0.
+RSpec/SubjectStub:
+  Enabled: false
+
+# The gem is guard-slimlint, so the spec is slimlint_spec.rb.
+RSpec/SpecFilePathFormat:
+  Enabled: false
+
+RSpec/ExampleLength:
+  Max: 8
+
+RSpec/MultipleExpectations:
+  Max: 2
+
+RSpec/DescribeClass:
+  Exclude:
+    - 'spec/guard/guardfile_template_spec.rb'

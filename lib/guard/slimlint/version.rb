@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 module Guard
   class SlimLintVersion
-    VERSION = '1.3.2'.freeze
+    VERSION = '1.4.0'
   end
 end

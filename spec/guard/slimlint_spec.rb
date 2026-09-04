@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'guard/notifier'
 require 'guard/compat/test/helper'
@@ -5,160 +7,170 @@ require 'guard/slimlint'
 require 'colorize'
 
 RSpec.describe Guard::SlimLint do
-  before { File.delete("#{@core}/Guardfile") if File.exist?("#{@core}/Guardfile") }
-  before { system('bundle exec guard init') }
-  after { File.delete("#{@core}/Guardfile") if File.exist?("#{@core}/Guardfile") }
+  subject(:plugin) { described_class.new(notify_on: :none) }
 
-  describe 'initialization guard' do
-    let(:core_guardfile_content) { File.read(@core_guardfile) }
-    let(:lib_guardfile_content) { File.read(@lib_guardfile) }
-
-    context 'when Guardfile does not exists' do
-      it { expect(File.exist?("#{@core}/Guardfile")).to be true }
-      it { expect(core_guardfile_content).to include(lib_guardfile_content) }
-    end
-
-    context 'when Guardfile already exists' do
-      before { system('bundle exec guard init') }
-      it { expect(core_guardfile_content).to include(lib_guardfile_content) }
-    end
+  # Reporting is driven entirely by the slim-lint exit status, so stubbing it
+  # lets every status be covered without shelling out.
+  def run_with_status(status, paths: ['a.html.slim'])
+    allow(plugin).to receive(:lint).and_return(status)
+    catch(:task_has_failed) { plugin.run_on_modifications(paths) }
   end
 
-  describe 'ui loggers' do
-    subject { described_class.new(notify_on: :none) }
+  describe 'reporting the lint outcome' do
+    it 'reports success when slim-lint exits 0' do
+      expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
+      run_with_status(0)
+    end
 
-    context 'when some offences are found' do
-      it do
-        expect(Guard::UI).to receive(:info).with('Slim offences has been detected'.red)
-        subject.run_on_modifications([@failfile])
+    it 'reports offences when slim-lint exits 65' do
+      expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
+      run_with_status(65)
+    end
+
+    # Regression test for the bug where any non-zero status was reported as
+    # lint offences, hiding crashes, usage errors and bad configuration.
+    [[64, 'usage error'], [67, 'missing input'], [70, 'crash'], [78, 'bad config'],
+     [127, 'binary not on PATH']].each do |status, description|
+      it "reports a #{description} (status #{status}) as an error, not as offences" do
+        expect(Guard::UI).to receive(:error).with("slim-lint exited with status #{status}")
+        expect(Guard::UI).not_to receive(:info)
+        run_with_status(status)
       end
     end
 
-    context 'when no offences found' do
-      it do
+    it 'reports an error when slim-lint never ran' do
+      expect(Guard::UI).to receive(:error).with('slim-lint could not be run')
+      run_with_status(nil)
+    end
+  end
+
+  describe 'halting the Guard task' do
+    before do
+      allow(Guard::UI).to receive(:info)
+      allow(Guard::UI).to receive(:error)
+    end
+
+    it 'does not halt when the run succeeds' do
+      allow(plugin).to receive(:lint).and_return(0)
+      expect { plugin.run_on_modifications(['a.html.slim']) }.not_to throw_symbol(:task_has_failed)
+    end
+
+    it 'halts when offences are found' do
+      allow(plugin).to receive(:lint).and_return(65)
+      expect { plugin.run_on_modifications(['a.html.slim']) }.to throw_symbol(:task_has_failed)
+    end
+
+    it 'halts when slim-lint fails to run' do
+      allow(plugin).to receive(:lint).and_return(70)
+      expect { plugin.run_on_modifications(['a.html.slim']) }.to throw_symbol(:task_has_failed)
+    end
+  end
+
+  describe 'invoking the real slim-lint binary' do
+    before { allow(Guard::UI).to receive(:info) }
+
+    it 'passes a clean template' do
+      in_slim_project do
         expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
-        subject.run_on_modifications([@testfile])
+        catch(:task_has_failed) { plugin.run_on_modifications(['clean.html.slim']) }
+      end
+    end
+
+    it 'reports offences in a failing template' do
+      in_slim_project do
+        expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
+        catch(:task_has_failed) { plugin.run_on_modifications(['failing.html.slim']) }
+      end
+    end
+
+    # Regression test for the bug where paths were interpolated into a shell
+    # string, so "sp ace/x.slim" reached slim-lint as two arguments.
+    it 'lints a path containing a space' do
+      in_slim_project do |dir|
+        FileUtils.mkdir(File.join(dir, 'sp ace'))
+        FileUtils.cp('clean.html.slim', File.join(dir, 'sp ace', 'clean.html.slim'))
+
+        expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
+        catch(:task_has_failed) { plugin.run_on_modifications(['sp ace/clean.html.slim']) }
+      end
+    end
+
+    it 'handles several paths at once' do
+      in_slim_project do
+        expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
+        catch(:task_has_failed) do
+          plugin.run_on_modifications(['clean.html.slim', 'failing.html.slim'])
+        end
+      end
+    end
+
+    it 'lints additions the same way as modifications' do
+      in_slim_project do
+        expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
+        catch(:task_has_failed) { plugin.run_on_additions(['clean.html.slim']) }
+      end
+    end
+
+    it 'lints the whole project on run_all' do
+      in_slim_project do
+        expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
+        catch(:task_has_failed) { plugin.run_all }
       end
     end
   end
 
   describe '#start' do
-    context 'when :all_on_start option is enabled' do
-      subject { described_class.new(all_on_start: true) }
-
-      it 'runs all' do
-        expect(subject).to receive(:run_all)
-        subject.start
-      end
+    it 'runs all when :all_on_start is enabled' do
+      plugin = described_class.new(all_on_start: true)
+      expect(plugin).to receive(:run_all)
+      plugin.start
     end
 
-    context 'when :all_on_start option is disabled' do
-      subject { described_class.new(all_on_start: false) }
+    it 'does nothing when :all_on_start is disabled' do
+      plugin = described_class.new(all_on_start: false)
+      expect(plugin).not_to receive(:run_all)
+      plugin.start
+    end
 
-      it 'does nothing' do
-        expect(subject).not_to receive(:run_all)
-        subject.start
-      end
+    it 'runs all by default' do
+      plugin = described_class.new
+      expect(plugin).to receive(:run_all)
+      plugin.start
     end
   end
 
-  describe 'notifiers' do
-    context 'when option set on :none' do
-      subject { described_class.new(notify_on: :none) }
+  describe 'notification options' do
+    {
+      none: { success: false, failure: false },
+      both: { success: true, failure: true },
+      failure: { success: false, failure: true },
+      success: { success: true, failure: false }
+    }.each do |option, expectations|
+      context "when :notify_on is #{option.inspect}" do
+        subject(:plugin) { described_class.new(notify_on: option) }
 
-      context 'when some offences detected' do
-        let(:result) { false }
-
-        it { expect(subject.send(:notification_allowed?, result)).to eq(false) }
-        it do
-          expect(subject).not_to receive(:notify)
-          subject.send(:check_and_notify, result)
+        it "#{expectations[:success] ? 'notifies' : 'stays quiet'} when no offences are found" do
+          expect(plugin.send(:notification_allowed?, true)).to eq(expectations[:success])
         end
-      end
 
-      context 'when no offences detected' do
-        let(:result) { true }
-
-        it { expect(subject.send(:notification_allowed?, result)).to eq(false) }
-        it do
-          expect(subject).not_to receive(:notify)
-          subject.send(:check_and_notify, result)
+        it "#{expectations[:failure] ? 'notifies' : 'stays quiet'} when offences are found" do
+          expect(plugin.send(:notification_allowed?, false)).to eq(expectations[:failure])
         end
       end
     end
 
-    context 'when option set on :both' do
-      subject { described_class.new(notify_on: :both) }
-
-      context 'when some offences detected' do
-        let(:result) { false }
-        it { expect(subject.send(:notification_allowed?, result)).to eq(true) }
-        it do
-          expect(subject).to receive(:notify)
-          subject.send(:check_and_notify, result)
-        end
-      end
-
-      context 'when no offences detected' do
-        let(:result) { true }
-
-        it { expect(subject.send(:notification_allowed?, result)).to eq(true) }
-        it do
-          expect(subject).to receive(:notify)
-          subject.send(:check_and_notify, result)
-        end
-      end
-    end
-  end
-
-  context 'when option set on :failure' do
-    subject { described_class.new(notify_on: :failure) }
-
-    context 'when some offences detected' do
-      let(:result) { false }
-      it { expect(subject.send(:notification_allowed?, result)).to eq(true) }
-      it do
-        expect(subject).to receive(:notify)
-        subject.send(:check_and_notify, result)
-      end
+    it 'defaults to notifying on failure only' do
+      expect(described_class.new.notify_on).to eq(:failure)
     end
 
-    context 'when no offences detected' do
-      let(:result) { true }
+    it 'sends the slim-lint error message to the notifier' do
+      plugin = described_class.new(notify_on: :both)
+      allow(Guard::UI).to receive(:error)
+      expect(Guard::Notifier).to receive(:notify)
+        .with('slim-lint exited with status 70', title: 'Slim-lint results', image: :failed)
 
-      it { expect(subject.send(:notification_allowed?, result)).to eq(false) }
-      it do
-        expect(subject).not_to receive(:notify)
-        subject.send(:check_and_notify, result)
-      end
+      allow(plugin).to receive(:lint).and_return(70)
+      catch(:task_has_failed) { plugin.run_on_modifications(['a.html.slim']) }
     end
-  end
-
-  context 'when option set on :success' do
-    subject { described_class.new(notify_on: :success) }
-
-    context 'when some offences detected' do
-      let(:result) { false }
-      it { expect(subject.send(:notification_allowed?, result)).to eq(false) }
-      it do
-        expect(subject).not_to receive(:notify)
-        subject.send(:check_and_notify, result)
-      end
-    end
-
-    context 'when no offences detected' do
-      let(:result) { true }
-
-      it { expect(subject.send(:notification_allowed?, result)).to eq(true) }
-      it do
-        expect(subject).to receive(:notify)
-        subject.send(:check_and_notify, result)
-      end
-    end
-  end
-
-  context 'when no option set' do
-    subject { described_class.new }
-    it { expect(subject.notify_on).to eq(:failure) }
   end
 end
