@@ -32,7 +32,10 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'colorize', '>= 0.8', '< 2.0'
   spec.add_dependency 'guard', '~> 2.14'
   spec.add_dependency 'guard-compat', '~> 1.2'
-  spec.add_dependency 'slim_lint', '>= 0.20', '< 1.0'
+  # Deliberately loose. The plugin only depends on the slim-lint executable
+  # and its sysexits codes, which is a tiny surface, so a slim_lint 1.0 must
+  # not block every user of this gem until a new release ships here.
+  spec.add_dependency 'slim_lint', '>= 0.20', '< 2.0'
 
   spec.add_development_dependency 'rake', '~> 13.0'
   spec.add_development_dependency 'rspec', '~> 3.13'

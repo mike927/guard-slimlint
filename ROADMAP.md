@@ -64,7 +64,7 @@ Everything in Phase 3 except autocorrect. What makes it major:
 - `colorize` is gone, so the `String` monkeypatch disappears from host apps.
 - `run_all` stops linting `.` and uses the watched directories, which lints *fewer* files for anyone who relied on the wide sweep.
 - The in-process runner changes when `.slim-lint.yml` is re-read. Guard must be reloaded after a config edit.
-- `slim_lint` floor moves to `~> 0.37` for the Runner API.
+- `slim_lint` floor moves to `~> 0.37` for the Runner API. This re-tightens the bound 1.4.0 deliberately loosened, so it is a cost of the in-process runner rather than a free upgrade. Weigh it when deciding whether that runner is worth it at all.
 
 Additive in the same release, because they are cheap once the runner is in
 place: `config_file:`, `halt_on_fail:`, offence counts in notifications, the
@@ -187,7 +187,7 @@ Do not tag yet. Phase 2 adds the CI that has to be green before the 1.4.0 releas
    - `metadata` with `source_code_uri`, `changelog_uri`, `bug_tracker_uri`, `rubygems_mfa_required: 'true'`.
    - `spec.files` via `Dir.glob` instead of `git ls-files` so the gem builds from a tarball too.
    - Remove `bindir` / `executables`.
-   - Loosen `guard` to `~> 2.14` only (drop the `>= 2.14.2` second clause, it is implied by any version resolvable today), `slim_lint` to `>= 0.20, < 1.0`, or `~> 0.37` if you want the Ruby API from Phase 3.
+   - Loosen `guard` to `~> 2.14` only (drop the `>= 2.14.2` second clause, it is implied by any version resolvable today) and `slim_lint` to `>= 0.20, < 2.0`. The upper bound matters more here than it looks: slim_lint has sat on 0.x for a decade, so `< 1.0` would let a routine maturity release lock out every user of this gem until a new release ships. The plugin only touches the executable name and its exit codes, so the compatible range is genuinely wide. guard-brakeman drops the upper bound entirely; `< 2.0` is the same idea with a backstop.
 3. `# frozen_string_literal: true` everywhere (rubocop `-a` does it).
 4. `CHANGELOG.md` in Keep a Changelog format, backfilled from the git tags (1.3.0, 1.3.1, 1.3.2, then Unreleased).
 5. `.github/dependabot.yml` for `bundler` and `github-actions` ecosystems, weekly.

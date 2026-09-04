@@ -42,7 +42,7 @@ without changing the plugin's interface.
 ### Changed
 
 - `required_ruby_version` is now declared as `>= 3.1`.
-- Dependencies relaxed and modernised: `slim_lint` `>= 0.20, < 1.0`,
+- Dependencies relaxed and modernised: `slim_lint` `>= 0.20, < 2.0`,
   `colorize` `>= 0.8, < 2.0`, `rake` 13, `rspec` 3.13.
 - Gemspec now carries `metadata` links and requires MFA for releases, and
   builds its file list with `Dir.glob` rather than `git ls-files`.
