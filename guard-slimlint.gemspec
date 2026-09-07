@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
   spec.homepage    = 'https://github.com/mike927/guard-slimlint'
   spec.license     = 'MIT'
 
-  spec.required_ruby_version = '>= 3.1'
+  spec.required_ruby_version = '>= 3.3'
 
   spec.metadata = {
     'homepage_uri' => spec.homepage,
@@ -29,7 +29,6 @@ Gem::Specification.new do |spec|
   spec.files = Dir.glob(%w[lib/**/*.rb lib/**/templates/Guardfile CHANGELOG.md README.md LICENSE.txt])
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'colorize', '>= 0.8', '< 2.0'
   spec.add_dependency 'guard', '~> 2.14'
   spec.add_dependency 'guard-compat', '~> 1.2'
   # Deliberately loose. The plugin only depends on the slim-lint executable

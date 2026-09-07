@@ -58,20 +58,36 @@ Anyone on an older Ruby keeps 1.3.2, which still works for them.
 
 ### 2.0.0
 
-Everything in Phase 3 except autocorrect. What makes it major:
+**Decision, 2026-09-07: the in-process runner is dropped.** The original plan
+was to replace the `slim-lint` subprocess with `SlimLint::Runner` called in
+the Guard process. A survey of five comparable plugins killed it: guard-rspec,
+guard-rubocop, guard-minitest and guard-slim_lint all shell out on purpose,
+and only guard-brakeman calls its tool in-process. The reason is that Guard is
+a long-running process. Loading slim_lint into it freezes `.slim-lint.yml` at
+startup, so editing the config needs a Guard restart, and RuboCop's caches
+accumulate for as long as the session lasts. A fresh subprocess gives correct
+state for free, and 1.4.0 already fixed the two things that made shelling out
+bad here: argv form and exit-status discrimination.
+
+Two consequences follow. Offence counts in notifications are off the table,
+because the subprocess only hands back an exit status, and the loose
+`slim_lint` bound from 1.4.0 stays loose.
+
+What makes the release major:
 
 - Ruby floor rises to 3.3, the oldest Ruby still getting security updates when this is written. Stating it as a rule rather than a number means the next release does not have to relitigate it.
 - `colorize` is gone, so the `String` monkeypatch disappears from host apps.
 - `run_all` stops linting `.` and uses the watched directories, which lints *fewer* files for anyone who relied on the wide sweep.
-- The in-process runner changes when `.slim-lint.yml` is re-read. Guard must be reloaded after a config edit.
-- `slim_lint` floor moves to `~> 0.37` for the Runner API. This re-tightens the bound 1.4.0 deliberately loosened, so it is a cost of the in-process runner rather than a free upgrade. Weigh it when deciding whether that runner is worth it at all.
+- `notify_on` defaults to `:change`, so notifications fire on a green-to-red or red-to-green flip rather than on every run. This is the actual fix for notification spam; `:failure` restores the old behaviour.
+- Option readers lose their writers. They were only ever read at construction.
 
-Additive in the same release, because they are cheap once the runner is in
-place: `config_file:`, `halt_on_fail:`, offence counts in notifications, the
-new template Guardfile patterns, and the README rewrite.
+Additive in the same release: `cli:` (arbitrary slim-lint arguments, replacing
+the planned `config_file:` with something more general, and matching what
+guard-rubocop offers), `halt_on_fail:`, validation of `notify_on`, the new
+template Guardfile patterns, and the README rewrite.
 
-Consider tagging `2.0.0.rc1` first. The in-process runner is the one change
-that could break someone quietly, and a prerelease costs nothing.
+Consider tagging `2.0.0.rc1` first. Changing the notification default is the
+one thing users will feel immediately, and a prerelease costs nothing.
 
 ### 2.1.0
 

@@ -4,13 +4,18 @@ require 'spec_helper'
 require 'guard/notifier'
 require 'guard/compat/test/helper'
 require 'guard/slimlint'
-require 'colorize'
 
 RSpec.describe Guard::SlimLint do
   subject(:plugin) { described_class.new(notify_on: :none) }
 
+  before do
+    allow(Guard::Compat::UI).to receive(:info)
+    allow(Guard::Compat::UI).to receive(:error)
+    allow(Guard::Compat::UI).to receive(:notify)
+  end
+
   # Reporting is driven entirely by the slim-lint exit status, so stubbing it
-  # lets every status be covered without shelling out.
+  # covers every status without shelling out.
   def run_with_status(status, paths: ['a.html.slim'])
     allow(plugin).to receive(:lint).and_return(status)
     catch(:task_has_failed) { plugin.run_on_modifications(paths) }
@@ -18,38 +23,47 @@ RSpec.describe Guard::SlimLint do
 
   describe 'reporting the lint outcome' do
     it 'reports success when slim-lint exits 0' do
-      expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
+      expect(Guard::Compat::UI).to receive(:info).with(a_string_including('No Slim offences detected'))
       run_with_status(0)
     end
 
     it 'reports offences when slim-lint exits 65' do
-      expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
+      expect(Guard::Compat::UI).to receive(:info).with(a_string_including('Slim offences have been detected'))
       run_with_status(65)
     end
 
-    # Regression test for the bug where any non-zero status was reported as
-    # lint offences, hiding crashes, usage errors and bad configuration.
-    [[64, 'usage error'], [67, 'missing input'], [70, 'crash'], [78, 'bad config'],
-     [127, 'binary not on PATH']].each do |status, description|
+    # Regression test for the 1.3.x bug where any non-zero status was reported
+    # as lint offences, hiding crashes, usage errors and bad configuration.
+    [[64, 'usage error'], [67, 'missing input'], [70, 'crash'], [78, 'bad config']].each do |status, description|
       it "reports a #{description} (status #{status}) as an error, not as offences" do
-        expect(Guard::UI).to receive(:error).with("slim-lint exited with status #{status}")
-        expect(Guard::UI).not_to receive(:info)
+        expect(Guard::Compat::UI).to receive(:error).with("slim-lint exited with status #{status}")
+        expect(Guard::Compat::UI).not_to receive(:info)
         run_with_status(status)
       end
     end
 
     it 'reports an error when slim-lint never ran' do
-      expect(Guard::UI).to receive(:error).with('slim-lint could not be run')
+      expect(Guard::Compat::UI).to receive(:error).with('slim-lint could not be run')
       run_with_status(nil)
+    end
+
+    # Bundler exits 1 and a shell exits 127, neither of which mentions Slim, so
+    # the bare number used to send people looking for lint errors in templates
+    # that were fine.
+    it 'explains status 1 as a bundle problem rather than a bare number' do
+      expect(Guard::Compat::UI).to receive(:error)
+        .with('slim-lint exited with status 1: the bundle is probably out of sync, try bundle install')
+      run_with_status(1)
+    end
+
+    it 'explains status 127 as a missing binary' do
+      expect(Guard::Compat::UI).to receive(:error)
+        .with('slim-lint exited with status 127: slim-lint is not on PATH, check that the gem is installed')
+      run_with_status(127)
     end
   end
 
   describe 'halting the Guard task' do
-    before do
-      allow(Guard::UI).to receive(:info)
-      allow(Guard::UI).to receive(:error)
-    end
-
     it 'does not halt when the run succeeds' do
       allow(plugin).to receive(:lint).and_return(0)
       expect { plugin.run_on_modifications(['a.html.slim']) }.not_to throw_symbol(:task_has_failed)
@@ -64,58 +78,92 @@ RSpec.describe Guard::SlimLint do
       allow(plugin).to receive(:lint).and_return(70)
       expect { plugin.run_on_modifications(['a.html.slim']) }.to throw_symbol(:task_has_failed)
     end
+
+    it 'stays silent for Guard when :halt_on_fail is disabled' do
+      plugin = described_class.new(notify_on: :none, halt_on_fail: false)
+      allow(plugin).to receive(:lint).and_return(65)
+
+      expect { plugin.run_on_modifications(['a.html.slim']) }.not_to throw_symbol(:task_has_failed)
+    end
   end
 
-  describe 'invoking the real slim-lint binary' do
-    before { allow(Guard::UI).to receive(:info) }
+  describe 'notification modes' do
+    describe ':change' do
+      subject(:plugin) { described_class.new(notify_on: :change) }
 
-    it 'passes a clean template' do
-      in_slim_project do
-        expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
-        catch(:task_has_failed) { plugin.run_on_modifications(['clean.html.slim']) }
+      it 'stays quiet when the first run is already clean' do
+        expect(Guard::Compat::UI).not_to receive(:notify)
+        run_with_status(0)
+      end
+
+      it 'notifies once when a green project turns red, then stays quiet' do
+        expect(Guard::Compat::UI).to receive(:notify).once
+
+        run_with_status(65)
+        run_with_status(65)
+        run_with_status(65)
+      end
+
+      it 'notifies again when the outcome flips back to green' do
+        expect(Guard::Compat::UI).to receive(:notify).twice
+
+        run_with_status(65)
+        run_with_status(0)
+        run_with_status(0)
+      end
+
+      it 'treats a slim-lint failure as a change away from green' do
+        expect(Guard::Compat::UI).to receive(:notify)
+          .with('slim-lint exited with status 78', hash_including(image: :failed))
+
+        run_with_status(78)
       end
     end
 
-    it 'reports offences in a failing template' do
-      in_slim_project do
-        expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
-        catch(:task_has_failed) { plugin.run_on_modifications(['failing.html.slim']) }
-      end
-    end
+    {
+      none: { success: 0, failure: 0 },
+      both: { success: 1, failure: 1 },
+      failure: { success: 0, failure: 1 },
+      success: { success: 1, failure: 0 }
+    }.each do |mode, expected|
+      describe ":#{mode}" do
+        subject(:plugin) { described_class.new(notify_on: mode) }
 
-    # Regression test for the bug where paths were interpolated into a shell
-    # string, so "sp ace/x.slim" reached slim-lint as two arguments.
-    it 'lints a path containing a space' do
-      in_slim_project do |dir|
-        FileUtils.mkdir(File.join(dir, 'sp ace'))
-        FileUtils.cp('clean.html.slim', File.join(dir, 'sp ace', 'clean.html.slim'))
+        it "notifies #{expected[:success]} time(s) when no offences are found" do
+          expect(Guard::Compat::UI).to receive(:notify).exactly(expected[:success]).times
+          run_with_status(0)
+        end
 
-        expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
-        catch(:task_has_failed) { plugin.run_on_modifications(['sp ace/clean.html.slim']) }
-      end
-    end
-
-    it 'handles several paths at once' do
-      in_slim_project do
-        expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
-        catch(:task_has_failed) do
-          plugin.run_on_modifications(['clean.html.slim', 'failing.html.slim'])
+        it "notifies #{expected[:failure]} time(s) when offences are found" do
+          expect(Guard::Compat::UI).to receive(:notify).exactly(expected[:failure]).times
+          run_with_status(65)
         end
       end
     end
 
-    it 'lints additions the same way as modifications' do
-      in_slim_project do
-        expect(Guard::UI).to receive(:info).with('No Slim offences detected'.green)
-        catch(:task_has_failed) { plugin.run_on_additions(['clean.html.slim']) }
-      end
+    it 'defaults to notifying only on a change' do
+      expect(described_class.new.notify_on).to eq(:change)
     end
 
-    it 'lints the whole project on run_all' do
-      in_slim_project do
-        expect(Guard::UI).to receive(:info).with('Slim offences have been detected'.red)
-        catch(:task_has_failed) { plugin.run_all }
-      end
+    # `guard init slimlint` writes the template verbatim, so a default there
+    # that contradicts the plugin's own would hand every new user a setting
+    # neither the README nor this class documents.
+    it 'ships a template whose notify_on matches that default' do
+      template = File.read(SlimLintFixtures::TEMPLATE_GUARDFILE)
+
+      expect(template).to include("notify_on: #{described_class.new.notify_on.inspect}")
+    end
+  end
+
+  describe 'option validation' do
+    it 'rejects an unrecognised :notify_on instead of silently staying quiet' do
+      expect { described_class.new(notify_on: :failur) }
+        .to raise_error(ArgumentError, /unknown :notify_on :failur/)
+    end
+
+    it 'accepts every documented mode' do
+      expect { described_class::NOTIFY_MODES.each { |m| described_class.new(notify_on: m) } }
+        .not_to raise_error
     end
   end
 
@@ -139,47 +187,115 @@ RSpec.describe Guard::SlimLint do
     end
   end
 
-  describe 'notification options' do
-    {
-      none: { success: false, failure: false },
-      both: { success: true, failure: true },
-      failure: { success: false, failure: true },
-      success: { success: true, failure: false }
-    }.each do |option, expectations|
-      context "when :notify_on is #{option.inspect}" do
-        subject(:plugin) { described_class.new(notify_on: option) }
-
-        it "#{expectations[:success] ? 'notifies' : 'stays quiet'} when no offences are found" do
-          expect(plugin.send(:notification_allowed?, true)).to eq(expectations[:success])
-        end
-
-        it "#{expectations[:failure] ? 'notifies' : 'stays quiet'} when offences are found" do
-          expect(plugin.send(:notification_allowed?, false)).to eq(expectations[:failure])
-        end
+  describe 'invoking the real slim-lint binary' do
+    it 'passes a clean template' do
+      in_slim_project do
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('No Slim offences detected'))
+        catch(:task_has_failed) { plugin.run_on_modifications(['clean.html.slim']) }
       end
     end
 
-    it 'defaults to notifying on failure only' do
-      expect(described_class.new.notify_on).to eq(:failure)
+    it 'reports offences in a failing template' do
+      in_slim_project do
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('Slim offences have been detected'))
+        catch(:task_has_failed) { plugin.run_on_modifications(['failing.html.slim']) }
+      end
     end
 
-    # `guard init slimlint` writes the template verbatim, so a default there
-    # that contradicts the plugin's own would hand every new user a setting
-    # neither the README nor this class documents.
-    it 'ships a template whose notify_on matches that default' do
-      template = File.read(SlimLintFixtures::TEMPLATE_GUARDFILE)
+    # Regression test for the 1.3.x bug where paths were interpolated into a
+    # shell string, so "sp ace/x.slim" reached slim-lint as two arguments.
+    it 'lints a path containing a space' do
+      in_slim_project do |dir|
+        FileUtils.mkdir(File.join(dir, 'sp ace'))
+        FileUtils.cp('clean.html.slim', File.join(dir, 'sp ace', 'clean.html.slim'))
 
-      expect(template).to include("notify_on: #{described_class.new.notify_on.inspect}")
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('No Slim offences detected'))
+        catch(:task_has_failed) { plugin.run_on_modifications(['sp ace/clean.html.slim']) }
+      end
     end
 
-    it 'sends the slim-lint error message to the notifier' do
-      plugin = described_class.new(notify_on: :both)
-      allow(Guard::UI).to receive(:error)
-      expect(Guard::Notifier).to receive(:notify)
-        .with('slim-lint exited with status 70', title: 'Slim-lint results', image: :failed)
+    it 'lints additions the same way as modifications' do
+      in_slim_project do
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('No Slim offences detected'))
+        catch(:task_has_failed) { plugin.run_on_additions(['clean.html.slim']) }
+      end
+    end
+  end
 
-      allow(plugin).to receive(:lint).and_return(70)
-      catch(:task_has_failed) { plugin.run_on_modifications(['a.html.slim']) }
+  describe ':cli option' do
+    # A config strict enough that even the clean fixture breaks it, so reaching
+    # slim-lint is the only way the run can fail.
+    def write_strict_config(dir)
+      File.write(File.join(dir, 'strict.yml'), "linters:\n  LineLength:\n    max: 5\n")
+    end
+
+    it 'forwards a String of arguments to slim-lint' do
+      in_slim_project do |dir|
+        write_strict_config(dir)
+        plugin = described_class.new(notify_on: :none, cli: '-c strict.yml')
+
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('Slim offences have been detected'))
+        catch(:task_has_failed) { plugin.run_on_modifications(['clean.html.slim']) }
+      end
+    end
+
+    it 'forwards an Array of arguments to slim-lint' do
+      in_slim_project do |dir|
+        write_strict_config(dir)
+        plugin = described_class.new(notify_on: :none, cli: ['-c', 'strict.yml'])
+
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('Slim offences have been detected'))
+        catch(:task_has_failed) { plugin.run_on_modifications(['clean.html.slim']) }
+      end
+    end
+
+    it 'lints normally when no :cli is given' do
+      in_slim_project do
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('No Slim offences detected'))
+        catch(:task_has_failed) { plugin.run_on_modifications(['clean.html.slim']) }
+      end
+    end
+  end
+
+  describe '#run_all' do
+    it 'lints the directories Guard was told to watch' do
+      in_slim_project do |dir|
+        FileUtils.mkdir(File.join(dir, 'tidy'))
+        FileUtils.cp('clean.html.slim', File.join(dir, 'tidy', 'clean.html.slim'))
+        allow(Guard::Compat).to receive(:watched_directories).and_return([Pathname('tidy')])
+
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('No Slim offences detected'))
+        catch(:task_has_failed) { plugin.run_all }
+      end
+    end
+
+    it 'sees offences that live inside a watched directory' do
+      in_slim_project do
+        allow(Guard::Compat).to receive(:watched_directories).and_return([Pathname('.')])
+
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('Slim offences have been detected'))
+        catch(:task_has_failed) { plugin.run_all }
+      end
+    end
+
+    it 'falls back to the whole project when Guard watches nothing in particular' do
+      in_slim_project do
+        allow(Guard::Compat).to receive(:watched_directories).and_return([])
+
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('Slim offences have been detected'))
+        catch(:task_has_failed) { plugin.run_all }
+      end
+    end
+
+    # guard-compat refuses to answer unless Guard's CLI is loaded, which is the
+    # case whenever the plugin is driven programmatically instead of by `guard`.
+    it 'falls back to the whole project when Guard is not fully loaded' do
+      in_slim_project do
+        allow(Guard::Compat).to receive(:watched_directories).and_raise(NotImplementedError)
+
+        expect(Guard::Compat::UI).to receive(:info).with(a_string_including('Slim offences have been detected'))
+        expect { catch(:task_has_failed) { plugin.run_all } }.not_to raise_error
+      end
     end
   end
 end

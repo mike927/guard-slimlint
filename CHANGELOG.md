@@ -6,6 +6,48 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-07
+
+A behaviour release. The plugin still runs slim-lint as a subprocess, which
+was a deliberate decision: Guard is a long-running process, and loading the
+linter into it would freeze `.slim-lint.yml` at startup and let RuboCop's
+caches grow all day. Four of the five comparable Guard plugins shell out for
+the same reason.
+
+### Changed
+
+- **`notify_on` now defaults to `:change`.** Notifications fire only when the
+  outcome flips, green to red or red to green. Saving a broken template twenty
+  times while fixing it produces one notification instead of twenty. Pass
+  `notify_on: :failure` for the old behaviour.
+- **Ruby 3.3 or newer is required.** 3.2 reached end of life in March 2026.
+- **`run_all` lints the directories Guard watches** rather than always
+  sweeping `.`. A `directories` line in your Guardfile now narrows it. Without
+  one, behaviour is unchanged.
+- The Guardfile template watches `app/views` rather than every `.html.slim`
+  file anywhere in the project, and re-lints when `.slim-lint.yml` changes.
+- Option readers are no longer writable. `notify_on` and `all_on_start` are
+  read once at construction, so the writers only ever looked useful.
+
+### Added
+
+- `cli:` option, forwarding arbitrary arguments to slim-lint as a String or an
+  Array. This covers `-c`, linter selection and anything slim-lint adds later
+  without a new option here for each.
+- `halt_on_fail:` option, default `true`, to opt out of failing Guard's task.
+- An unrecognised `notify_on` now raises at startup instead of silently
+  disabling notifications for the whole session.
+- Exit statuses that do not come from slim-lint itself now explain themselves.
+  Status 1 is Bundler failing to load the command, and 127 is a missing binary;
+  neither mentions Slim, so the bare number used to send people hunting for
+  lint errors in templates that were fine.
+
+### Removed
+
+- The `colorize` runtime dependency. It monkeypatched `String` in every host
+  application to colour two log lines. Guard's own `Compat::UI.color` does the
+  same job, so the plugin now adds nothing to your object space.
+
 ## [1.4.0] - 2026-09-04
 
 The gem had not been touched since 2019 and could no longer be developed on any
@@ -75,7 +117,8 @@ without changing the plugin's interface.
 - `all_on_start` is honoured, so the plugin no longer lints everything on
   startup when the option is disabled.
 
-[Unreleased]: https://github.com/mike927/guard-slimlint/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/mike927/guard-slimlint/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/mike927/guard-slimlint/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/mike927/guard-slimlint/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/mike927/guard-slimlint/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/mike927/guard-slimlint/compare/v1.3.0...v1.3.1
