@@ -6,7 +6,7 @@
 Guard::SlimLint runs [slim-lint](https://github.com/sds/slim-lint) automatically
 every time a Slim template is added or changed.
 
-Requires Ruby 3.1 or newer.
+Requires Ruby 3.3 or newer.
 
 ## Installation
 
@@ -22,12 +22,6 @@ Then run:
 
 ```
 bundle install
-```
-
-Or install it yourself:
-
-```
-gem install guard-slimlint
 ```
 
 ## Usage
@@ -50,27 +44,41 @@ Linting itself is configured by slim-lint, not by this plugin. Put a
 ## Options
 
 ```ruby
-guard :slimlint, notify_on: :failure, all_on_start: true do
+guard :slimlint, notify_on: :change, cli: '-c config/.slim-lint.yml' do
   watch(%r{^app/views/.+\.slim$})
+  watch(%r{(?:.+/)?\.slim-lint\.yml$}) { |m| File.dirname(m[0]) }
 end
 ```
 
 | Option | Default | Meaning |
 |--------|---------|---------|
-| `notify_on` | `:failure` | When to send a desktop notification. One of `:failure`, `:success`, `:both`, `:none`. |
+| `notify_on` | `:change` | When to send a desktop notification. One of `:change`, `:failure`, `:success`, `:both`, `:none`. |
 | `all_on_start` | `true` | Lint everything once when Guard starts. |
+| `halt_on_fail` | `true` | Tell Guard the task failed, so a group's `halt_on_fail` can stop the rest of it. |
+| `cli` | none | Extra arguments passed straight to slim-lint. String or Array. |
 
-Desktop notifications come from Guard itself. On macOS, add
-`terminal-notifier-guard` to your Gemfile to get them.
+An unrecognised `notify_on` raises at startup rather than silently going quiet.
 
-Guard's `halt_on_fail` group option is respected. Put the plugin in a group with
-`halt_on_fail: true` to stop the rest of the group when linting fails.
+### Notifications
+
+`:change` notifies only when the outcome flips, green to red or red to green.
+Saving a broken file twenty times while you fix it produces one notification,
+not twenty. `:failure` notifies on every failing run, which is the older
+behaviour if you prefer it.
+
+Notifications come from Guard itself. On macOS, add `terminal-notifier-guard`
+to your Gemfile, or you will only see the terminal window title change.
+
+### Running everything
+
+`run_all` lints the directories Guard is watching, so a `directories` line in
+your Guardfile narrows it. Without one it falls back to the whole project.
 
 ## Exit status handling
 
 slim-lint reports its outcome with sysexits codes. This plugin treats status 65
 as "offences were found" and every other non-zero status as slim-lint itself
-failing, which is reported through `Guard::UI.error` with the status. A
+failing, which is reported through `Guard::Compat::UI.error` with the status. A
 misconfigured `.slim-lint.yml` or a crash is therefore not mistaken for a lint
 failure.
 

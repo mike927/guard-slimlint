@@ -1,6 +1,13 @@
 # available options:
-#   notify_on:
-#     failure, success, both, none
-guard :slimlint, notify_on: :failure do
-  watch(/^.+(\.html\.slim)$/)
+#   notify_on:    change (default), failure, success, both, none
+#   all_on_start: true (default), false
+#   halt_on_fail: true (default), false
+#   cli:          extra arguments for slim-lint, e.g. '-c config/.slim-lint.yml'
+guard :slimlint, notify_on: :change do
+  # Rails views. For a non-Rails project, watch wherever your templates live,
+  # for example watch(%r{^templates/.+\.slim$})
+  watch(%r{^app/views/.+\.slim$})
+
+  # Re-lint when the slim-lint configuration itself changes.
+  watch(%r{(?:.+/)?\.slim-lint\.yml$}) { |m| File.dirname(m[0]) }
 end

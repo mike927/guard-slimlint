@@ -4,7 +4,7 @@ plugins:
 
 AllCops:
   NewCops: enable
-  TargetRubyVersion: 3.1
+  TargetRubyVersion: 3.3
   SuggestExtensions: false
   # Without this, the Exclude below replaces RuboCop's default list rather
   # than adding to it, and CI's vendor/bundle gets linted.
