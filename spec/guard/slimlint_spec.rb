@@ -153,6 +153,12 @@ RSpec.describe Guard::SlimLint do
 
       expect(template).to include("notify_on: #{described_class.new.notify_on.inspect}")
     end
+
+    it 'ships a template whose commented autocorrect matches that default' do
+      template = File.read(SlimLintFixtures::TEMPLATE_GUARDFILE)
+
+      expect(template).to include("autocorrect:  #{described_class.new.autocorrect} (default)")
+    end
   end
 
   describe 'option validation' do
@@ -163,6 +169,26 @@ RSpec.describe Guard::SlimLint do
 
     it 'accepts every documented mode' do
       expect { described_class::NOTIFY_MODES.each { |m| described_class.new(notify_on: m) } }
+        .not_to raise_error
+    end
+
+    it 'rejects an invalid :autocorrect value' do
+      expect { described_class.new(autocorrect: :yes) }
+        .to raise_error(ArgumentError, /:autocorrect must be true or false/)
+    end
+
+    it 'rejects a non-boolean :all_on_start value' do
+      expect { described_class.new(all_on_start: 'true') }
+        .to raise_error(ArgumentError, /:all_on_start must be true or false/)
+    end
+
+    it 'rejects a non-boolean :halt_on_fail value' do
+      expect { described_class.new(halt_on_fail: 'false') }
+        .to raise_error(ArgumentError, /:halt_on_fail must be true or false/)
+    end
+
+    it 'accepts boolean option values' do
+      expect { [true, false].each { |v| described_class.new(autocorrect: v, all_on_start: v, halt_on_fail: v) } }
         .not_to raise_error
     end
   end
@@ -253,6 +279,66 @@ RSpec.describe Guard::SlimLint do
       in_slim_project do
         expect(Guard::Compat::UI).to receive(:info).with(a_string_including('No Slim offences detected'))
         catch(:task_has_failed) { plugin.run_on_modifications(['clean.html.slim']) }
+      end
+    end
+  end
+
+  describe ':autocorrect option' do
+    it 'defaults to false' do
+      expect(described_class.new.autocorrect).to be false
+    end
+
+    it 'passes -a to slim-lint when autocorrect is enabled' do
+      plugin = described_class.new(notify_on: :none, autocorrect: true)
+      allow(plugin).to receive(:system).with('slim-lint', '-a', 'clean.html.slim') { system('true') }
+      expect { plugin.run_on_modifications(['clean.html.slim']) }.not_to throw_symbol(:task_has_failed)
+    end
+
+    it 'does not duplicate -a when already present in cli string' do
+      plugin = described_class.new(notify_on: :none, autocorrect: true, cli: '-a -c strict.yml')
+      allow(plugin).to receive(:system).with('slim-lint', '-a', '-c', 'strict.yml', 'a.slim') { system('true') }
+      expect { plugin.run_on_modifications(['a.slim']) }.not_to throw_symbol(:task_has_failed)
+    end
+
+    it 'does not duplicate -a when --auto-correct is present in cli array' do
+      plugin = described_class.new(notify_on: :none, autocorrect: true, cli: ['--auto-correct'])
+      allow(plugin).to receive(:system).with('slim-lint', '--auto-correct', 'clean.html.slim') { system('true') }
+      expect { plugin.run_on_modifications(['clean.html.slim']) }.not_to throw_symbol(:task_has_failed)
+    end
+
+    it 'does not pass -a when autocorrect is disabled' do
+      plugin = described_class.new(notify_on: :none, autocorrect: false)
+      allow(plugin).to receive(:system).with('slim-lint', 'clean.html.slim') { system('true') }
+      expect { plugin.run_on_modifications(['clean.html.slim']) }.not_to throw_symbol(:task_has_failed)
+    end
+
+    it 'automatically corrects fixable offences in files on disk' do
+      in_slim_project do |dir|
+        dirty = File.join(dir, 'fixable.html.slim')
+        File.write(dirty, "div\n  p Hello world   \n")
+        plugin = described_class.new(notify_on: :none, autocorrect: true)
+        expect { plugin.run_on_modifications([dirty]) }.not_to throw_symbol(:task_has_failed)
+        expect(File.read(dirty)).to eq("div\n  p Hello world\n")
+      end
+    end
+
+    it 'partially corrects fixable offences but halts if unfixable offences remain' do
+      in_slim_project do |dir|
+        mixed = File.join(dir, 'mixed.html.slim')
+        File.write(mixed, "div\n  p #{'a' * 150}   \n")
+        plugin = described_class.new(notify_on: :none, autocorrect: true)
+        expect { plugin.run_on_modifications([mixed]) }.to throw_symbol(:task_has_failed)
+        expect(File.read(mixed)).to eq("div\n  p #{'a' * 150}\n")
+      end
+    end
+
+    it 'leaves fixable offences untouched when autocorrect is false' do
+      in_slim_project do |dir|
+        dirty = File.join(dir, 'fixable.html.slim')
+        File.write(dirty, "div\n  p Hello world   \n")
+        plugin = described_class.new(notify_on: :none, autocorrect: false)
+        catch(:task_has_failed) { plugin.run_on_modifications([dirty]) }
+        expect(File.read(dirty)).to eq("div\n  p Hello world   \n")
       end
     end
   end

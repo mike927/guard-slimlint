@@ -28,11 +28,11 @@ honestly instead of racing out a hotfix.
 
 Three releases. Ship 1.4.0 before starting 2.0.0.
 
-| Release | Theme | Phases | Breaking | Effort |
-|---------|-------|--------|----------|--------|
-| 1.4.0 | It works again | 0, 1, 2 | No | about 1 day |
-| 2.0.0 | Modern plugin | 3, minus autocorrect | Yes | 1-2 days |
-| 2.1.0 | Autocorrect | the autocorrect option | No | about half a day |
+| Release | Theme | Phases | Breaking | Effort | Status |
+|---------|-------|--------|----------|--------|--------|
+| 1.4.0 | It works again | 0, 1, 2 | No | about 1 day | Shipped (2026-09-04) |
+| 2.0.0 | Modern plugin | 3, minus autocorrect | Yes | 1-2 days | Shipped (2026-09-07) |
+| 2.1.0 | Autocorrect | the autocorrect option | No | about half a day | Implemented (2026-09-14) |
 
 ### 1.4.0
 
@@ -91,9 +91,10 @@ one thing users will feel immediately, and a prerelease costs nothing.
 
 ### 2.1.0
 
-The autocorrect option, alone. It is the only feature here that writes to the
-files Guard is watching, so it can loop. Isolating it means a bad interaction
-is one revert, not a rollback of the whole rewrite.
+The autocorrect option, alone. Implemented via subprocess flag passthrough (`-a`)
+matching the decision from 2.0.0. When enabled, it corrects offences on disk,
+and the follow-up pass terminates cleanly under the default `:change` notification mode.
+Isolating it means a bad interaction is one revert, not a rollback of the whole rewrite.
 
 ### What I would not do
 
