@@ -2,6 +2,7 @@
 #   notify_on:    change (default), failure, success, both, none
 #   all_on_start: true (default), false
 #   halt_on_fail: true (default), false
+#   autocorrect:  false (default), true
 #   cli:          extra arguments for slim-lint, e.g. '-c config/.slim-lint.yml'
 guard :slimlint, notify_on: :change do
   # Rails views. For a non-Rails project, watch wherever your templates live,

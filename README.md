@@ -55,9 +55,16 @@ end
 | `notify_on` | `:change` | When to send a desktop notification. One of `:change`, `:failure`, `:success`, `:both`, `:none`. |
 | `all_on_start` | `true` | Lint everything once when Guard starts. |
 | `halt_on_fail` | `true` | Tell Guard the task failed, so a group's `halt_on_fail` can stop the rest of it. |
+| `autocorrect` | `false` | Automatically correct offences that support it using `slim-lint -a`. |
 | `cli` | none | Extra arguments passed straight to slim-lint. String or Array. |
 
-An unrecognised `notify_on` raises at startup rather than silently going quiet.
+An unrecognised `notify_on` or non-boolean option raises at startup rather than silently going quiet.
+
+### Autocorrect
+
+Setting `autocorrect: true` automatically runs `slim-lint -a`, fixing offences that support auto-correction directly on disk. If all offences in a file are corrected, slim-lint exits with status 0 and Guard reports success. If uncorrectable offences remain, slim-lint exits with status 65 and Guard reports the remaining offences.
+
+Because auto-correction modifies files in-place, Guard's file listener detects the disk write and re-lints the now-clean template. The default `notify_on: :change` ensures this follow-up pass stays quiet and does not send duplicate desktop notifications.
 
 ### Notifications
 

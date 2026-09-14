@@ -20,6 +20,9 @@ Style/Documentation:
 Layout/LineLength:
   Max: 120
 
+Metrics/ClassLength:
+  Max: 120
+
 Gemspec/DevelopmentDependencies:
   EnforcedStyle: gemspec
 

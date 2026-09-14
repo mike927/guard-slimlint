@@ -27,18 +27,21 @@ module Guard
       127 => 'slim-lint is not on PATH, check that the gem is installed'
     }.freeze
 
-    attr_reader :notify_on, :all_on_start, :halt_on_fail, :cli
+    AUTOCORRECT_FLAGS = %w[-a --autocorrect --auto-correct -A --autocorrect-all].freeze
+
+    attr_reader :notify_on, :all_on_start, :halt_on_fail, :cli, :autocorrect
 
     def initialize(options = {})
       @notify_on    = options.fetch(:notify_on, :change)
       @all_on_start = options.fetch(:all_on_start, true)
       @halt_on_fail = options.fetch(:halt_on_fail, true)
       @cli          = options[:cli]
+      @autocorrect  = options.fetch(:autocorrect, false)
       # Assume the project starts green, so a clean first run stays quiet
       # under :change instead of announcing that nothing is wrong.
       @last_success = true
 
-      validate_notify_on!
+      validate_options!
       super
     end
 
@@ -60,12 +63,25 @@ module Guard
 
     private
 
+    def validate_options!
+      validate_notify_on!
+      validate_boolean!(:all_on_start, all_on_start)
+      validate_boolean!(:halt_on_fail, halt_on_fail)
+      validate_boolean!(:autocorrect, autocorrect)
+    end
+
     def validate_notify_on!
       return if NOTIFY_MODES.include?(notify_on)
 
       raise ArgumentError,
             "unknown :notify_on #{notify_on.inspect}, expected one of " \
             "#{NOTIFY_MODES.map(&:inspect).join(', ')}"
+    end
+
+    def validate_boolean!(name, value)
+      return if [true, false].include?(value)
+
+      raise ArgumentError, ":#{name} must be true or false, got #{value.inspect}"
     end
 
     # The directories Guard was told to watch, so run_all honours a
@@ -102,11 +118,14 @@ module Guard
     end
 
     def cli_args
-      case cli
-      when Array then cli.map(&:to_s)
-      when String then cli.shellsplit
-      else []
-      end
+      args = case cli
+             when Array then cli.map(&:to_s)
+             when String then cli.shellsplit
+             else []
+             end
+
+      args.unshift('-a') if autocorrect && !args.intersect?(AUTOCORRECT_FLAGS)
+      args
     end
 
     def report_success

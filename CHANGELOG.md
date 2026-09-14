@@ -6,6 +6,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-14
+
+### Added
+
+- `autocorrect:` option, default `false`, to automatically correct offences that
+  support it using `slim-lint -a`. Offences are corrected in-place on disk. If all
+  offences are corrected, the run succeeds cleanly.
+- Non-boolean values passed to `autocorrect:`, `all_on_start:`, or `halt_on_fail:`
+  raise an `ArgumentError` on startup.
+
 ## [2.0.0] - 2026-09-07
 
 A behaviour release. The plugin still runs slim-lint as a subprocess, which
@@ -117,7 +127,8 @@ without changing the plugin's interface.
 - `all_on_start` is honoured, so the plugin no longer lints everything on
   startup when the option is disabled.
 
-[Unreleased]: https://github.com/mike927/guard-slimlint/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/mike927/guard-slimlint/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/mike927/guard-slimlint/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/mike927/guard-slimlint/compare/v1.4.0...v2.0.0
 [1.4.0]: https://github.com/mike927/guard-slimlint/compare/v1.3.2...v1.4.0
 [1.3.2]: https://github.com/mike927/guard-slimlint/compare/v1.3.1...v1.3.2
